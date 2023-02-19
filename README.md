@@ -1,4 +1,4 @@
-# SciSumTransformer
+# SciSumLongFormer
 
 guidelines for summarizing: https://huggingface.co/course/chapter7/5?fw=pt
 
