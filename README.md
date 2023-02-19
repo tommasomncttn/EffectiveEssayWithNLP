@@ -2,7 +2,7 @@
 
 guidelines for summarizing: https://huggingface.co/course/chapter7/5?fw=pt
 
-seq2seq model to fine: https://huggingface.co/Dagar/t5-small-science-papers
+seq2seq model to fine: https://huggingface.co/Dagar/t5-small-science-papers , https://huggingface.co/L-macc/autotrain-Biomedical_sc_summ-1217846148 
 
 dataset: https://huggingface.co/datasets/scientific_papers OR https://huggingface.co/datasets/tomasg25/scientific_lay_summarisation
 
