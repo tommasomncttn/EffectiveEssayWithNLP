@@ -6,6 +6,8 @@ seq2seq model to fine: https://huggingface.co/Dagar/t5-small-science-papers
 
 dataset: https://huggingface.co/datasets/scientific_papers
 
+transformer into longformer: https://github.com/allenai/longformer/issues/64
+
 --------
 
 code example 1 => (baseline for architecture 2): https://github.com/christianversloot/machine-learning-articles/blob/main/transformers-for-long-text-code-examples-with-longformer.md
