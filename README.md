@@ -6,7 +6,6 @@ seq2seq model to fine: https://huggingface.co/Dagar/t5-small-science-papers , ht
 
 dataset: https://huggingface.co/datasets/scientific_papers OR https://huggingface.co/datasets/tomasg25/scientific_lay_summarisation , 
 
-dataset for NLI: https://huggingface.co/datasets/multi_nli
 
 transformer into longformer: https://github.com/allenai/longformer/issues/64
 
