@@ -1,5 +1,20 @@
 # SciSumLongFormer
 
+Kaggle Competition: https://www.kaggle.com/competitions/feedback-prize-effectiveness/data
+
+RESEARCH IDEA: Use longformer for text classification 
+
+transformer into longformer: https://github.com/allenai/longformer/issues/64
+
+baseline model: https://huggingface.co/alicekwak/TN-final-longformer-base-4096
+
+
+
+
+----------------------------------------------------------------------------------------------------
+
+
+
 guidelines for summarizing: https://huggingface.co/course/chapter7/5?fw=pt
 
 seq2seq model to fine: https://huggingface.co/Dagar/t5-small-science-papers , https://huggingface.co/L-macc/autotrain-Biomedical_sc_summ-1217846148 
