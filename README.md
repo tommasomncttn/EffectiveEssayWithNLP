@@ -1,4 +1,4 @@
-# SciSumLongFormer
+# Effective Essay With NLP
 
 Kaggle Competition: https://www.kaggle.com/competitions/feedback-prize-effectiveness/data
 
