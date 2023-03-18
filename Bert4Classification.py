@@ -207,9 +207,6 @@ test_dataloader = DataLoader(
 # ===========================================
 
 # creating a pytorch module => that is a block of parameters and computation (forward)
-import torch.nn as nn
-
-
 class Bert4BinaryClassification(nn.Module):
 
     # initiliazer, specify the name of the bert model you want to load
