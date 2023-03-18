@@ -26,6 +26,8 @@ df = pd.read_csv(path2file)
 text_df = df["text"]
 label_df = df["target"]
 
+# ADDD HERE TEST TRAIN TEST SPLIT
+
 # ===========================================
 # ||                                       ||
 # ||       Section 3: extract numeric      ||
@@ -85,6 +87,13 @@ for fold, (train_indices, val_indices) in enumerate(kf.split(vectorized_train, l
     # Print the F1 score for this fold
     print(f"Fold {fold}: F1 score = {f1}")
 
-# Calculate the average F1 score across all folds
-avg_score = np.mean(f1_scores)
-print(f"Average F1 score across {num_folds} folds: {avg_score}")
+    # Calculate the average F1 score across all folds
+    avg_score = np.mean(f1_scores)
+    print(f"Average F1 score across {num_folds} folds: {avg_score}")
+
+# ===========================================
+# ||                                       ||
+# ||       Section 4: test the model      ||
+# ||                                       ||
+# ===========================================
+
