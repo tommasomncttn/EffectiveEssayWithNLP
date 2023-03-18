@@ -9,7 +9,7 @@ import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, train_test_split
 
 # ===========================================
 # ||                                       ||
@@ -18,15 +18,18 @@ from sklearn.model_selection import KFold
 # ===========================================
 
 # define path2file
-path2file = "/content/drive/MyDrive/ML_proj/clean_data.csv"
+path2file = "C:/Users/luigi/OneDrive/Desktop/progetto_ML/train.csv"
 # Load the dataset
 df = pd.read_csv(path2file)
 
-# Extract text and target labels
-text_df = df["text"]
-label_df = df["target"]
+# Splitting the data into training and testing sets
+train_df, test_df = train_test_split(df, test_size=0.2, random_state=69)
 
-# ADDD HERE TEST TRAIN TEST SPLIT
+# Extracting the text and target labels from the training and testing data
+text_train = train_df["text"]
+label_train = train_df["target"].values
+text_test = test_df["text"]
+label_test = test_df["target"].values
 
 # ===========================================
 # ||                                       ||
@@ -39,8 +42,10 @@ label_df = df["target"]
 vect = CountVectorizer(stop_words='english')
 
 # Fit the CountVectorizer on the training data to learn the vocabulary and create a document-term matrix
-vectorized_train = vect.fit_transform(text_df)
+vectorized_train = vect.fit_transform(text_train)
 
+# Transforming the test data into the same document-term matrix as the training data
+vectorized_test = vect.transform(text_test)
 
 # ===========================================
 # ||                                       ||
@@ -48,13 +53,9 @@ vectorized_train = vect.fit_transform(text_df)
 # ||                                       ||
 # ===========================================
 
-
-# Create logistic regression model
-model = LogisticRegression(max_iter=500)
-
 # Hyperparameter search
-# param_grid = {'C': np.logspace(-3, 3, 7), 'penalty': ['l2', None]}
-# model_H = GridSearchCV(model,param_grid,cv=3)
+#param_grid = {'C': np.logspace(-3, 3, 7), 'penalty': ['l2', None]}
+#model_H = GridSearchCV(model,param_grid,cv=3)
 
 # Set number of folds to use for cross-validation
 num_folds = 5
@@ -66,11 +67,14 @@ kf = KFold(n_splits=num_folds, shuffle=True)
 f1_scores = []
 
 # Loop over each fold and train the model on the training data, then evaluate on the validation data
-for fold, (train_indices, val_indices) in enumerate(kf.split(vectorized_train, label_df)):
+for fold, (train_indices, val_indices) in enumerate(kf.split(vectorized_train, label_train)):
 
     # Split the data into training and validation sets for this fold
-    X_train, y_train = vectorized_train[train_indices], label_df[train_indices]
-    X_val, y_val = vectorized_train[val_indices], label_df[val_indices]
+    X_train, y_train = vectorized_train[train_indices], label_train[train_indices]
+    X_val, y_val = vectorized_train[val_indices], label_train[val_indices]
+
+    # Create logistic regression model
+    model = LogisticRegression(max_iter=500)
 
     # Fit a logistic regression model on the training data
     model.fit(X_train, y_train)
@@ -97,3 +101,17 @@ for fold, (train_indices, val_indices) in enumerate(kf.split(vectorized_train, l
 # ||                                       ||
 # ===========================================
 
+# Create a new logistic regression model
+model = LogisticRegression(max_iter=500)
+
+# Fit a logistic regression model on the full training data
+model.fit(vectorized_train, label_train)
+
+# Make predictions on the validation data using the trained model
+predicted_labels = model.predict(vectorized_test)
+
+# Evaluate the performance of the model using F1 score
+f1 = f1_score(predicted_labels, label_test)
+
+# Print the performance of the final model
+print(f"F1 score for the model trained on all the training data: {f1}")
