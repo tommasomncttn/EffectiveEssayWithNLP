@@ -53,10 +53,6 @@ vectorized_test = vect.transform(text_test)
 # ||                                       ||
 # ===========================================
 
-# Hyperparameter search
-#param_grid = {'C': np.logspace(-3, 3, 7), 'penalty': ['l2', None]}
-#model_H = GridSearchCV(model,param_grid,cv=3)
-
 # Set number of folds to use for cross-validation
 num_folds = 5
 
@@ -75,6 +71,10 @@ for fold, (train_indices, val_indices) in enumerate(kf.split(vectorized_train, l
 
     # Create logistic regression model
     model = LogisticRegression(max_iter=500)
+
+    # Hyperparameter search
+    # param_grid = {'C': np.logspace(-3, 3, 7), 'penalty': ['l2', None]}
+    # model_H = GridSearchCV(model,param_grid,cv=3)
 
     # Fit a logistic regression model on the training data
     model.fit(X_train, y_train)
