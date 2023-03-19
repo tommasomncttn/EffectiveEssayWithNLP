@@ -55,13 +55,33 @@ learn.fine_tune(epoch_hp2, lr_hp3)
 # ||       Section 4: testing the model    ||
 # ||                                       ||
 # ===========================================
+from sklearn.metrics import f1_score
 
-# Create a data loader for the test data using the same parameters as the training data loader.
+# Create a test dataloader from the test data using the `test_dl` method of the `dls` dataloaders object.
 test_dl = dls.test_dl(test_df['text'])
 
-# Get the predicted labels and probabilities for the test data using the trained model.
-preds, targets = learn.get_preds(dl=test_dl, with_decoded=True)
+# Get the predicted probabilities for the test data using the trained model.
+preds, _ = learn.get_preds(dl=test_dl)
 
-# Print the accuracy of the model on the test data.
-acc = accuracy(preds, targets)
+# Get the predicted labels for the test data.
+predicted_labels = preds.argmax(dim=1)
+
+# Convert the predicted labels to Python list and get the corresponding class names.
+predicted_classes = [dls.vocab[i] for i in predicted_labels]
+
+# Convert the predicted classes list to a tensor.
+predicted_classes_tensor = torch.tensor(predicted_labels)
+
+# Reshape the predicted tensor to have the same shape as the target tensor.
+predicted_classes_tensor = predicted_classes_tensor.unsqueeze(1)
+
+# Convert the target labels to a tensor.
+target_tensor = torch.tensor(test_df["target"].values)
+
+# Compute the accuracy and f1 score of the model on the test data using the `accuracy` and `f1_score` functions.
+acc = accuracy(predicted_classes_tensor, target_tensor)
+f1 = f1_score(target_tensor, predicted_classes_tensor)
+
+# Print the accuracy and f1 score of the model on the test data.
 print(f"Test accuracy: {acc}")
+print(f"Test f1 score: {f1}")
