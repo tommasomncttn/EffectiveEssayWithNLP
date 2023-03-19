@@ -520,3 +520,8 @@ print("DONE TESTING")
 
 model = models.vgg16(pretrained=True)
 torch.save(model.state_dict(), 'BERT_weights.pth')
+
+# get a onnx copy that can be visualized with netron => https://netron.app/
+i_want_netron = False
+if i_want_netron:
+    torch.onnx.export(model, (torch.zeros(1, 128, dtype=torch.long).cuda(), torch.zeros(1, 128, dtype=torch.long).cuda()), "bert.onnx", input_names=["input_ids", "attention_mask"], output_names=["logits"], opset_version=11)
