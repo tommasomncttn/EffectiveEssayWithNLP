@@ -7,6 +7,7 @@
 from fastai.text.all import *
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import f1_score
 
 # ===========================================
 # ||                                       ||
@@ -55,7 +56,6 @@ learn.fine_tune(epoch_hp2, lr_hp3)
 # ||       Section 4: testing the model    ||
 # ||                                       ||
 # ===========================================
-from sklearn.metrics import f1_score
 
 # Create a test dataloader from the test data using the `test_dl` method of the `dls` dataloaders object.
 test_dl = dls.test_dl(test_df['text'])
