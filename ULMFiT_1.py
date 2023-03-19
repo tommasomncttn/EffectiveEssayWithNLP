@@ -17,22 +17,24 @@ from sklearn.metrics import f1_score
 # ===========================================
 
 #TODO use clean dataset
-# Read in a CSV file named "train.csv" from a specific file path
-# and store it in a pandas dataframe named "df".
-df = pd.read_csv("/content/drive/MyDrive/ML_proj/train.csv")
+# Read in a CSV files
 
-# Remove the "id", "keyword", and "location" columns from the dataframe "df".
-df.drop(columns=["id", "keyword", "location"], inplace=True)
+train_df = pd.read_csv("/content/drive/MyDrive/ML_proj/zaazazza/train_df.csv")
+test_df = pd.read_csv("/content/drive/MyDrive/ML_proj/zaazazza/test_df.csv")
+validation_df =  pd.read_csv("/content/drive/MyDrive/ML_proj/zaazazza/validation_df.csv")
 
-# Split the dataframe into train and test dataframes
-train_df, test_df = train_test_split(df, test_size=0.2, random_state=69)
+# Drop not needed columns
+
+train_df = test_df.drop(test_df.columns[:4], axis=1)
+validation_df = validation_df.drop(validation_df.columns[:4], axis=1)
+test_df = test_df.drop(validation_df.columns[:4], axis=1)
 
 # Create a data loader for text data using the "TextDataLoaders" class from the fastai library.
-dls = TextDataLoaders.from_df(train_df, path='.', valid_pct=0.2, seed=None,
-                          text_col=0, label_col=1, label_delim=None,
-                          y_block=None, text_vocab=None, is_lm=False,
-                          valid_col=None, tok_tfm=None,
-                          tok_text_col='text', seq_len=72)
+dls = TextDataLoaders.from_df(train_df, valid_df=validation_df, path='.', valid_pct=0.2, seed=None,
+                              text_col=0, label_col=1, label_delim=None,
+                              y_block=None, text_vocab=None, is_lm=False,
+                              valid_col=None, tok_tfm=None,
+                              tok_text_col='text', seq_len=72)
 
 # ===========================================
 # ||                                       ||
