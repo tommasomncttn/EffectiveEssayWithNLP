@@ -72,14 +72,15 @@ model_nm = "distilbert-base-uncased"
 # ||                                       ||
 # ===========================================
 
-# Read in train and test CSV files using Pandas
-path2train = '/content/drive/MyDrive/LT_SHARED_FOLDER/train.csv'
-df = pd.read_csv(path2train)
-# split the data into training and testing sets
-train_df, test_df = train_test_split(df, test_size=0.1, random_state=42)
+# Read csv files to create pandas dataframes
+path2test = '/content/drive/MyDrive/LT_SHARED_FOLDER/test_df.csv'
+test_df = pd.read_csv('')
 
-# split the data into training and validation sets
-train_df, validation_df = train_test_split(df, test_size=0.1, random_state=42)
+path2val = '/content/drive/MyDrive/LT_SHARED_FOLDER/validation_df.csv'
+validation_df = pd.read_csv('')
+
+path2train = '/content/drive/MyDrive/LT_SHARED_FOLDER/train_df.csv'
+train_df = pd.read_csv('')
 
 # Renaming columns
 train_df.rename(columns = {"target":"labels"}, inplace = True)
