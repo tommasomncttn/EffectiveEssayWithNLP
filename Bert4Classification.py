@@ -4,22 +4,14 @@
 # ||                                       ||
 # ===========================================
 
-import transformers
-from datasets import load_dataset, load_metric
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoTokenizer
+import matplotlib.pyplot as plt
 import numpy as np
-import os
-import nltk
-import torch
-import evaluate
-import sys
 import pandas as pd
-from datasets import load_dataset, Dataset, DatasetDict
-from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
+from datasets import Dataset
 from sklearn.model_selection import train_test_split
-import torch
-from transformers import BertTokenizer, BertForSequenceClassification, AdamW, BertConfig, get_linear_schedule_with_warmup
-from torch.utils.data import TensorDataset, random_split, DataLoader, RandomSampler, SequentialSampler
+from transformers import BertForSequenceClassification, AdamW, get_linear_schedule_with_warmup
+from torch.utils.data import TensorDataset, DataLoader, RandomSampler
 import torch.nn as nn
 from tqdm.auto import tqdm
 from sklearn.metrics import f1_score
@@ -365,6 +357,7 @@ def train(model, train_dataloader, loss_fn, optimizer, scheduler):
 
     print('')
     print('  Average training loss: {0:.2f}'.format(final_avg_train_loss))
+    return final_avg_train_loss
 
 
 # 2) VALIDATION WITH ACCURACY
@@ -421,6 +414,8 @@ def validate(model, valid_dataloader, loss_fn):
 
         print(f'Accuracy Score: {accuracy}')
         print(f'Valid_loss: {total_valid_loss}')
+
+        return total_valid_loss
 
 
 # 3) TESTING WITH ACCURACY AND F1
@@ -494,27 +489,65 @@ def test_with_f1(model, test_dataloader, loss_fn):
 # ||                                       ||
 # ===========================================
 
+# ===========================================
+# ||                                       ||
+# ||Section 9: training and testing        ||
+# ||                                       ||
+# ===========================================
+
+# initliazing history of loss
+
+train_loss_history = []
+validation_loss_history = []
+
 # TRAINING LOOP
 print(" ")
 print("START TRAINING ")
 print(" ")
 for t in range(epochs_hp3):
     print(f"Epoch {t+1}\n-------------------------------")
-    train(model = model, train_dataloader = train_dataloader, loss_fn = loss_fn, optimizer = optimizer1, scheduler = scheduler)
-    validate(model = model,valid_dataloader = validation_dataloader,loss_fn = loss_fn)
+    loss_train = train(model = model, train_dataloader = train_dataloader, loss_fn = loss_fn, optimizer = optimizer1, scheduler = scheduler)
+    loss_validate = validate(model = model,valid_dataloader = validation_dataloader,loss_fn = loss_fn)
+    train_loss_history.append(loss_train)
+    validation_loss_history.append(loss_validate)
 print("DONE TRAINING")
 
 # TESTING
 print(" ")
 print("START TESTING")
 print(" ")
-test_with_f1(model = model,valid_dataloader = test_dataloader,loss_fn = loss_fn)
+test_with_f1(model = model,test_dataloader = test_dataloader,loss_fn = loss_fn)
 print("DONE TESTING")
-
 
 # ===========================================
 # ||                                       ||
-# ||Section 10: saving the model           ||
+# ||Section 10: visualization              ||
+# ||                                       ||
+# ===========================================
+
+# Calculate the final training loss, validation loss, and generalization gap
+final_train_loss = np.sqrt(train_loss_history[-1])
+final_validation_loss = np.sqrt(validation_loss_history[-1])
+generalization_gap = final_validation_loss - final_train_loss
+
+# Plot the training loss, validation loss, and generalization gap
+plt.plot(np.sqrt(train_loss_history), label="Train Loss")
+plt.plot(np.sqrt(validation_loss_history), label="Validation Loss")
+
+# Add the generalization gap segment to the plot
+plt.plot(len(train_loss_history) - 1, final_train_loss, 'ro')
+plt.plot(len(validation_loss_history) - 1, final_validation_loss, 'bo')
+plt.plot([len(train_loss_history) - 1, len(validation_loss_history) - 1], [final_train_loss, final_validation_loss],
+         'k--', label="Generalization Gap")
+
+plt.xlabel("epochs")
+plt.ylabel("loss")
+plt.legend()
+plt.show()
+
+# ===========================================
+# ||                                       ||
+# ||Section 11: saving the model           ||
 # ||                                       ||
 # ===========================================
 
