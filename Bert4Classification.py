@@ -99,17 +99,15 @@ model_nm = "bert-large-uncased"
 # ||                                       ||
 # ===========================================
 
-# Read in train and test CSV files using Pandas
-path2train = '/content/drive/MyDrive/LT_SHARED_FOLDER/train.csv'
-df = pd.read_csv(path2train)
-# split the data into training and testing sets
-train_df, test_df = train_test_split(df, test_size=0.2, random_state=42)
-train_df, validation_df = train_test_split(train_df, test_size=0.2, random_state=42)
+# Read csv files to create pandas dataframes
+path2test = '/content/drive/MyDrive/LT_SHARED_FOLDER/test_df.csv'
+test_df = pd.read_csv('')
 
-# Change the name of target values from "target" to "labels" to conform to BERT's standard
-train_df.rename(columns = {"target":"labels"}, inplace = True)
-validation_df.rename(columns = {"target":"labels"}, inplace = True)
-test_df.rename(columns = {"target":"labels"}, inplace = True)
+path2val = '/content/drive/MyDrive/LT_SHARED_FOLDER/validation_df.csv'
+validation_df = pd.read_csv('')
+
+path2train = '/content/drive/MyDrive/LT_SHARED_FOLDER/train_df.csv'
+train_df = pd.read_csv('')
 
 # pandas2dataset
 ds_train = Dataset.from_pandas(train_df[["text","labels"]])
