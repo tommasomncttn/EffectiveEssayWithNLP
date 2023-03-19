@@ -41,7 +41,7 @@ dls = TextDataLoaders.from_df(train_df, path='.', valid_pct=0.2, seed=None,
 # ===========================================
 
 # Picking hyperparameters
-dropout_hp1 = 0.5
+dropout_hp1 = 0.7
 epoch_hp2 = 4
 lr_hp3 = 1e-2
 
@@ -49,7 +49,7 @@ lr_hp3 = 1e-2
 learn = text_classifier_learner(dls, AWD_LSTM, drop_mult=dropout_hp1, metrics=accuracy)
 
 # Fine-tune the neural network for four epochs using stochastic gradient descent
-learn.fine_tune(epoch_hp2, lr_hp3)
+learn.fine_tune(epoch_hp2, lr_hp3, cbs=[ShowGraphCallback()])
 
 # ===========================================
 # ||                                       ||
