@@ -25,9 +25,9 @@ validation_df =  pd.read_csv("/content/drive/MyDrive/ML_proj/zaazazza/validation
 
 # Drop not needed columns
 
-train_df = test_df.drop(test_df.columns[:4], axis=1)
-validation_df = validation_df.drop(validation_df.columns[:4], axis=1)
-test_df = test_df.drop(validation_df.columns[:4], axis=1)
+train_df = test_df.drop(train_df.columns[0:4], axis=1)
+validation_df = validation_df.drop(validation_df.columns[0:4], axis=1)
+test_df = test_df.drop(test_df.columns[0:4], axis=1)
 
 # Create a data loader for text data using the "TextDataLoaders" class from the fastai library.
 dls = TextDataLoaders.from_df(train_df, valid_df=validation_df, path='.', valid_pct=0.2, seed=None,
