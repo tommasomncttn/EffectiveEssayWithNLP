@@ -21,6 +21,8 @@ from sklearn.metrics import accuracy_score, f1_score
 from transformers import DataCollatorWithPadding
 from transformers import TrainingArguments, Trainer
 import os
+import torch.cuda as cuda
+import gc
 from utils4gpu import *
 
 # ===========================================
