@@ -111,7 +111,7 @@ def tok_func(x): return tokz(x["text"], truncation=True, padding = "max_length",
 
 # TOKENIZING THE DS
 tok_ds_train = ds_train.map(tok_func, batched=True, remove_columns=['text','id', 'keyword', 'location'])
-tok_ds_validation = ds_test.map(tok_func, batched=True, remove_columns=['text','id', 'keyword', 'location'])
+tok_ds_validation = ds_validation.map(tok_func, batched=True, remove_columns=['text','id', 'keyword', 'location'])
 tok_ds_test = ds_test.map(tok_func, batched=True, remove_columns=['text','id', 'keyword', 'location'])
 
 # CREATE A DATASET TO FEED THE MODEL
@@ -170,7 +170,7 @@ trainer = Trainer(
     model = model, # our model
     args = training_args, # hyperparameter defined before
     train_dataset = ds["train"],
-    eval_dataset = ds["test"],
+    eval_dataset = ds["validation"],
     compute_metrics = compute_metrics, # evaluation function defined before
     data_collator = data_collator,
 )
