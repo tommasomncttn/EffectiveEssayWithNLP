@@ -196,10 +196,54 @@ predictions = trainer.predict(ds["test"])
 eval_result = compute_metrics(predictions)
 print(eval_result)
 print("DONE TESTING")
-
 # ===========================================
 # ||                                       ||
-# ||Section 9: saving the model           ||
+# ||Section 9: validation and bias         ||
+# ||                                       ||
+# ===========================================
+
+from datasets import concatenate_datasets
+from sklearn.model_selection import KFold
+
+ds = concatenate_datasets([tok_ds_train, tok_ds_validation, tok_ds_test])
+
+n=5
+kf = KFold(n_splits=n, random_state=42, shuffle=True)
+
+accuracy = []
+f1 = []
+set1 = train_df
+set1.rename(columns = {"target":"labels"}, inplace = True)
+i = 0
+for train_index, val_index in kf.split(set1):
+  i+=1231
+  if os.path.exists("/content/distilbert-base-uncased"):
+     os.rename("/content/distilbert-base-uncased", os.path.join(os.path.dirname("/content/distilbert-base-uncased"), str(i)))
+  # splitting Dataframe (dataset not included)
+  train_df = set1.iloc[train_index]
+  val_df = set1.iloc[val_index]
+  ds_train = Dataset.from_pandas(train_df)
+  ds_validation = Dataset.from_pandas(val_df)
+  tok_ds_train = ds_train.map(tok_func, batched=True, remove_columns=['text','id', 'keyword', 'location'])
+  tok_ds_validation = ds_validation.map(tok_func, batched=True, remove_columns=['text','id', 'keyword', 'location'])
+  ds = DatasetDict({"train":tok_ds_train, "validation":tok_ds_validation})
+
+  # cleaning gpu and loading the model
+  clean_gpu()
+  model = AutoModelForSequenceClassification.from_pretrained(model_nm, num_labels = 2).to(device)
+  # setting up the trainer
+  trainer = Trainer(model = model, args = training_args, train_dataset = ds["train"], eval_dataset = ds["validation"], compute_metrics = compute_metrics, data_collator = data_collator)
+  # train the model
+  trainer.train()
+  # access the performance
+  eval_accuracy = trainer.evaluate(ds["validation"])['eval_accuracy']
+  eval_f1 = trainer.evaluate(ds["validation"])['eval_f1']
+  # append model score
+  f1.append(eval_f1)
+  accuracy.append(eval_accuracy)
+# ===========================================
+# ||                                       ||
+# ||Section 10: saving the model           ||
 # ||                                       ||
 # ===========================================
 
