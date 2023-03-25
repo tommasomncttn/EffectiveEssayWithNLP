@@ -5,7 +5,7 @@
 # ===========================================
 
 import transformers
-from datasets import load_dataset, load_metric
+from datasets import load_dataset, load_metric,  Dataset, DatasetDict
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import numpy as np
 import os
@@ -14,7 +14,6 @@ import torch
 import evaluate
 import sys
 import pandas as pd
-from datasets import load_dataset, Dataset, DatasetDict
 from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score
@@ -23,6 +22,7 @@ from transformers import TrainingArguments, Trainer
 import os
 import torch.cuda as cuda
 import gc
+import optuna
 from utils4gpu import *
 
 # ===========================================
@@ -75,14 +75,14 @@ model_nm = "distilbert-base-uncased"
 # ===========================================
 
 # Read csv files to create pandas dataframes
-path2test = '/content/drive/MyDrive/LT_SHARED_FOLDER/test_df.csv'
-test_df = pd.read_csv('')
+path2test = '/content/drive/MyDrive/ML_proj/zaazazza/Copia de test_df.csv'
+test_df = pd.read_csv(path2test)
 
-path2val = '/content/drive/MyDrive/LT_SHARED_FOLDER/validation_df.csv'
-validation_df = pd.read_csv('')
+path2val = '/content/drive/MyDrive/ML_proj/zaazazza/Copia de validation_df.csv'
+validation_df = pd.read_csv(path2val)
 
-path2train = '/content/drive/MyDrive/LT_SHARED_FOLDER/train_df.csv'
-train_df = pd.read_csv('')
+path2train = '/content/drive/MyDrive/ML_proj/zaazazza/Copia de train_df.csv'
+train_df = pd.read_csv(path2train)
 
 # Renaming columns
 train_df.rename(columns = {"target":"labels"}, inplace = True)
@@ -93,7 +93,6 @@ test_df.rename(columns = {"target":"labels"}, inplace = True)
 ds_train = Dataset.from_pandas(train_df)
 ds_validation = Dataset.from_pandas(validation_df)
 ds_test = Dataset.from_pandas(test_df)
-
 
 # ===========================================
 # ||                                       ||
@@ -141,12 +140,98 @@ def compute_metrics(pred):
     f1 = f1_score(labels, preds, average='weighted')
     return {'accuracy': acc, 'f1': f1}
 
+# ===========================================
+# ||                                       ||
+# ||Section 7: hyperparam search           ||
+# ||                                       ||
+# ===========================================
+
+
+num_r = 1
+
+# Define the search space for hyperparameters using Optuna's distributions.
+def objective(trial):
+    global num_r
+
+    # Rename folder containing the old model
+    if os.path.exists("/content/distilbert-base-uncased"):
+      os.rename("/content/distilbert-base-uncased", os.path.join(os.path.dirname("/content/distilbert-base-uncased"), str(num_r)))
+    num_r += 1
+
+    # IMPORTING THE MODEL
+    model = AutoModelForSequenceClassification.from_pretrained(model_nm, num_labels = 2).to(device)
+    # checking if the model is on the gpu
+    print_gpu_utilization()
+
+    # Hyperparameters to optimize
+    learning_rate = trial.suggest_loguniform('learning_rate', 1e-6, 1e-4)
+    weight_decay = trial.suggest_loguniform('weight_decay', 1e-6, 1e-2)
+    num_train_epochs = trial.suggest_int('num_train_epochs', 1, 5)
+
+    # setting the hyperparameter for the trainer
+    training_args = TrainingArguments(
+        model_nm,
+        evaluation_strategy = "epoch",
+        learning_rate=learning_rate,
+        weight_decay=weight_decay,
+        num_train_epochs=num_train_epochs,
+        per_device_train_batch_size=8,
+        per_device_eval_batch_size=8,
+        logging_steps = 50, # FROM BELOW MEMORY TRICKS
+        gradient_accumulation_steps=16, # adding them to offset small batch size due to memory problem => so 2*8 => 16 batch-size traning
+        fp16 = True
+    )
+
+    # passing in the hyperparameter for the trainer
+    trainer = Trainer(
+        model = model, # our model
+        args = training_args, # hyperparameter defined before
+        train_dataset = ds["train"],
+        eval_dataset = ds["validation"],
+        compute_metrics = compute_metrics, # evaluation function defined before
+        data_collator = data_collator,
+    )
+
+    # TRAINING LOOP
+    print(" ")
+    print("START TRAINING ")
+    print(" ")
+    trainer.train()
+    print("DONE TRAINING")
+
+    # TESTING
+    print(" ")
+    print("START VALIDATION")
+    print(" ")
+    predictions = trainer.predict(ds["validation"])
+    eval_result = compute_metrics(predictions)
+    print(eval_result)
+    print("DONE VALIDATION")
+
+    # Return the evaluation metric to be optimized by Optuna.
+    return 1 - eval_result['accuracy']
+
+# Define the Optuna study and run the hyperparameter search.
+study = optuna.create_study(direction='minimize')
+study.optimize(objective, n_trials=2)
+print(study.best_params)
+best_trial = study.best_trial
+
+# Train the model with the best hyperparameters found by optuna and evaluate it on the test data.
+best_num_train_epochs = best_trial.params['num_train_epochs']
+best_weight_decay = best_trial.params['weight_decay']
+best_learning_rate = best_trial.params['learning_rate']
+
 
 # ===========================================
 # ||                                       ||
-# ||Section 7: the model and hyperparam    ||
+# ||Section 8: the model and hyperparam    ||
 # ||                                       ||
 # ===========================================
+
+# Rename folder containing the old model
+if os.path.exists("/content/distilbert-base-uncased"):
+    os.rename("/content/distilbert-base-uncased", os.path.join(os.path.dirname("/content/distilbert-base-uncased"), '1'))
 
 # IMPORTING THE MODEL
 model = AutoModelForSequenceClassification.from_pretrained(model_nm, num_labels = 2).to(device)
@@ -157,9 +242,9 @@ print_gpu_utilization()
 training_args = TrainingArguments(
     model_nm,
     evaluation_strategy = "epoch",
-    learning_rate=2e-5,
-    weight_decay=0.01,
-    num_train_epochs=3,
+    learning_rate=best_learning_rate,
+    weight_decay=best_weight_decay,
+    num_train_epochs=best_num_train_epochs,
     per_device_train_batch_size=8,
     per_device_eval_batch_size=8,
     logging_steps = 50, # FROM BELOW MEMORY TRICKS
@@ -179,7 +264,7 @@ trainer = Trainer(
 
 # ===========================================
 # ||                                       ||
-# ||Section 8: training and testing        ||
+# ||Section 9: training and testing        ||
 # ||                                       ||
 # ===========================================
 
@@ -192,15 +277,16 @@ print("DONE TRAINING")
 
 # TESTING
 print(" ")
-print("START TESTING")
+print("\033[32mSTARTING FINAL TESTING OF THE MODEL\033[0m")
 print(" ")
 predictions = trainer.predict(ds["test"])
 eval_result = compute_metrics(predictions)
 print(eval_result)
 print("DONE TESTING")
+
 # ===========================================
 # ||                                       ||
-# ||Section 9: validation and bias         ||
+# ||Section 10: validation and bias        ||
 # ||                                       ||
 # ===========================================
 
@@ -218,7 +304,7 @@ set1 = train_df
 set1.rename(columns = {"target":"labels"}, inplace = True)
 i = 0
 for train_index, val_index in kf.split(set1):
-  i+=1231
+  i+=231
   if os.path.exists("/content/distilbert-base-uncased"):
      os.rename("/content/distilbert-base-uncased", os.path.join(os.path.dirname("/content/distilbert-base-uncased"), str(i)))
   # splitting Dataframe (dataset not included)
@@ -243,9 +329,11 @@ for train_index, val_index in kf.split(set1):
   # append model score
   f1.append(eval_f1)
   accuracy.append(eval_accuracy)
+
+
 # ===========================================
 # ||                                       ||
-# ||Section 10: saving the model           ||
+# ||Section 11: saving the model           ||
 # ||                                       ||
 # ===========================================
 
