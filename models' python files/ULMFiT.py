@@ -1,6 +1,8 @@
+!pip install optuna
+
 # ===========================================
 # ||                                       ||
-# ||       Importing modules               ||
+# ||       Importing needed libraries      ||
 # ||                                       ||
 # ===========================================
 
@@ -8,12 +10,13 @@ from fastai.text.all import *
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score
+import optuna
 
-# ===========================================
-# ||                                       ||
-# ||       PART 1: Language Model          ||
-# ||                                       ||
-# ===========================================
+                                  # ===========================================
+                                  # ||                                       ||
+                                  # ||       PART 1: Language Model          ||
+                                  # ||                                       ||
+                                  # ===========================================
 # ===========================================
 # ||                                       ||
 # ||       Section 1: getting dataframes   ||
@@ -22,7 +25,7 @@ from sklearn.metrics import f1_score
 # ===========================================
 
 
-# Read the CSV file into a variable
+# Read the CSV file into a variable (dataset from https://www.kaggle.com/datasets/vstepanenko/disaster-tweets)
 dataset = pd.read_csv("/content/drive/MyDrive/ML_proj/tweets.csv",)
 
 # Drop the "id", "keyword", "location", and "target" columns from the dataset
@@ -38,40 +41,83 @@ dls_lm = TextDataLoaders.from_df(dataset, path='.', valid_pct=0.2, seed=None,
 
 # ===========================================
 # ||                                       ||
-# ||       Section 2: train the language   ||
+# ||       Section 2: hyperparameter       ||
+# ||                        tuning         ||
+# ||                                       ||
+# ===========================================
+
+
+def train_language_model(trial):
+
+    print(" NUOVO ROUND LM HYP. SEARCH")
+    # Define the hyperparameters to optimize
+    wheight_decay_HP1 = trial.suggest_float('wheight_decay_HP1', 1e-5, 1e-1, log=True)
+    learningrate_1_HP2 = trial.suggest_float('learningrate_1_HP2', 1e-5, 1e-1, log=True)
+    learningrate_2_HP3 = trial.suggest_float('learningrate_2_HP3', 1e-5, 1e-1, log=True)
+    epoch1_HP4 = trial.suggest_int('epoch1_HP4', 1, 10)
+    epoch2_HP5 = trial.suggest_int('epoch2_HP5', 1, 10)
+
+    # Create a learner object
+    learn = language_model_learner(dls_lm, AWD_LSTM, metrics=[accuracy, Perplexity()], wd=wheight_decay_HP1).to_fp16()
+
+    # Fine-tune the language model for one epoch
+    learn.fit_one_cycle(n_epoch=epoch1_HP4, lr_max=learningrate_1_HP2)
+
+    # Unfreeze the layers of the language model and fine-tune it
+    learn.unfreeze()
+    learn.fit_one_cycle(n_epoch=epoch2_HP5, lr_max=learningrate_2_HP3)
+
+    # Get the validation loss after fine-tuning
+    val_loss = learn.validate()[0]
+
+    return val_loss
+
+# Run the hyperparameter optimization for the language model
+study_lm = optuna.create_study(direction='minimize')
+study_lm.optimize(train_language_model, n_trials=50)
+
+# Get the best hyperparameters
+best_wheight_decay_HP1 = study_lm.best_params['wheight_decay_HP1']
+best_learningrate_1_HP2 = study_lm.best_params['learningrate_1_HP2']
+best_learningrate_2_HP3 = study_lm.best_params['learningrate_2_HP3']
+best_epoch_1_HP4 = study_lm.best_params['epoch1_HP4']
+best_epoch_2_HP5 = study_lm.best_params['epoch2_HP5']
+
+
+# ===========================================
+# ||                                       ||
+# ||       Section 3: train the language   ||
 # ||                            model      ||
 # ||                                       ||
 # ===========================================
 
-wheight_decay_HP1 = 0.1
-learningrate_1_HP2 = 0.00363078061491251
-learningrate_2_HP3 = 1e-3
-epoch1_HP4 = 2
-epoch2_hp5 = 6
+
 # Create a learner object
-learn = language_model_learner(dls_lm, AWD_LSTM, metrics=[accuracy, Perplexity()], wd=wheight_decay_HP1).to_fp16()
-print(learn.lr_find())
+learn = language_model_learner(dls_lm, AWD_LSTM, metrics=[accuracy, Perplexity()], wd=best_wheight_decay_HP1).to_fp16()
+
 # Fine-tune the language model for one epoch
-learn.fit_one_cycle(n_epoch = epoch1_HP4, lr_max= learningrate_1_HP2)
+learn.fit_one_cycle(n_epoch = best_epoch_1_HP4, lr_max= best_learningrate_1_HP2)
 
 # Unfreeze the layers of the language model and fine-tune it
 learn.unfreeze()
-learn.fit_one_cycle(n_epoch = epoch2_hp5, lr_max= learningrate_2_HP3)
+learn.fit_one_cycle(n_epoch = best_epoch_2_HP5, lr_max= best_learningrate_2_HP3)
 
 # Save the encoder part of the fine-tuned language model
 learn.save_encoder('finetuned')
 
-# ===========================================
-# ||                                       ||
-# ||       PART 2: Classifier              ||
-# ||                                       ||
-# ===========================================
+
+                                  # ===========================================
+                                  # ||                                       ||
+                                  # ||       PART 2: Classifier              ||
+                                  # ||                                       ||
+                                  # ===========================================
 # ===========================================
 # ||                                       ||
 # ||       Section 1: getting dataframes   ||
 # ||                    and dataloader     ||
 # ||                                       ||
 # ===========================================
+
 
 #TODO use clean dataset
 # Read in a CSV file
@@ -83,7 +129,7 @@ validation_df =  pd.read_csv("/content/drive/MyDrive/ML_proj/zaazazza/validation
 train_df = test_df.drop(train_df.columns[0:4], axis=1)
 validation_df = validation_df.drop(validation_df.columns[0:4], axis=1)
 test_df = test_df.drop(test_df.columns[0:4], axis=1)
-print(test_df.columns)
+
 # Create a dataloader
 dls_clas = TextDataLoaders.from_df(train_df, valid_df=validation_df, path='.', valid_pct=0.2, seed=None,
                           text_col=0, label_col=1, label_delim=None,
@@ -91,36 +137,114 @@ dls_clas = TextDataLoaders.from_df(train_df, valid_df=validation_df, path='.', v
                           valid_col=None, tok_tfm=None,
                           tok_text_col='text', seq_len=72)
 
+
 # ===========================================
 # ||                                       ||
-# ||       Section 2: train the model      ||
+# ||       Section 2: hyperparameter       ||
+# ||                        tuning         ||
 # ||                                       ||
 # ===========================================
 
+
+def train_classifier_model(trial):
+
+    print(" NUOVO ROUND class HYP. SEARCH")
+
+    # Define the hyperparameters as Optuna parameters
+    lr_1_hp5 = trial.suggest_loguniform('lr_1_hp5', 1e-4, 1e-1)
+    lr_2_hp6 = trial.suggest_categorical('lr_2_hp6', [slice(1e-2/(2.6**4),1e-2), slice(1e-3/(2.6**4),1e-3)])
+    lr_3_hp7 = trial.suggest_categorical('lr_3_hp7', [slice(5e-3/(2.6**4),5e-3), slice(1e-3/(2.6**4),1e-3)])
+    lr_4_hp8 = trial.suggest_loguniform('lr_4_hp8', 1e-7, 1e-3)
+    drop_mult_hp9 = trial.suggest_uniform('drop_mult_hp9', 0.1, 0.9)
+
+    # Create a learner object for training a text classifier
+    learn = text_classifier_learner(dls_clas, AWD_LSTM, drop_mult=drop_mult_hp9, metrics=accuracy)
+
+    # Load the encoder part of the previously fine-tuned language model to the classifier learner object
+    learn = learn.load_encoder('finetuned')
+
+    # Train the classifier for one epoch
+    learn.fit_one_cycle(1, lr_1_hp5)
+
+    # Freeze all but the last two layers of the classifier and fine-tune it for one epoch
+    learn.freeze_to(-2)
+    learn.fit_one_cycle(1, lr_2_hp6)
+
+    # Freeze all but the last three layers of the classifier and fine-tune it for one epoch
+    learn.freeze_to(-3)
+    learn.fit_one_cycle(1, lr_3_hp7)
+
+    # Unfreeze all layers of the classifier and fine-tune it for three epochs
+    learn.unfreeze()
+    learn.fine_tune(2, lr_4_hp8, cbs=[ShowGraphCallback()])
+
+        # Get the predicted probabilities for the validation data using the trained model.
+    val_dl = dls_clas.test_dl(validation_df['text'])
+    val_preds, _ = learn.get_preds(dl=val_dl)
+
+    # Get the predicted labels for the validation data.
+    val_predicted_labels = val_preds.argmax(dim=1)
+
+    # Compute the f1 score of the model on the validation data using the `f1_score` function.
+    val_f1 = f1_score(validation_df["target"].values, val_predicted_labels)
+
+    # Return the negative f1 score as the loss to optimize (because optuna maximizes the negative of the objective).
+    return -val_f1
+
+# Create an optuna study and optimize the objective function using the TPE sampler.
+study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler())
+study.optimize(train_classifier_model, n_trials=2)
+
+# Print the best set of hyperparameters found by optuna and the corresponding f1 score on the validation data.
+print('Best trial:')
+best_trial = study.best_trial
+print(f'  Value: {-best_trial.value:.5f}')
+print('  Params: ')
+for key, value in best_trial.params.items():
+    print(f'    {key}: {value}')
+
+# Hyperparameters
+
+best_lr_1_hp5 = best_trial.params['lr_1_hp5']
+best_lr_2_hp6 = best_trial.params['lr_2_hp6']
+best_lr_3_hp7 = best_trial.params['lr_3_hp7']
+best_lr_4_hp8 = best_trial.params['lr_4_hp8']
+best_drop_mult_hp9 = best_trial.params['drop_mult_hp9']
+
+
+# ===========================================
+# ||                                       ||
+# ||       Section 3: train the model      ||
+# ||                                       ||
+# ===========================================
+
+
 # Create a learner object for training a text classifier
-learn = text_classifier_learner(dls_clas, AWD_LSTM, drop_mult=0.7, metrics=accuracy)
+learn = text_classifier_learner(dls_clas, AWD_LSTM, drop_mult=best_drop_mult_hp9, metrics=accuracy)
 
 # Load the encoder part of the previously fine-tuned language model to the classifier learner object
 learn = learn.load_encoder('finetuned')
 
+
+
 # Train the classifier for one epoch
-#learn.fit_one_cycle(1, 2e-2)
+learn.fit_one_cycle(1, best_lr_1_hp5)
 
 # Freeze all but the last two layers of the classifier and fine-tune it for one epoch
 learn.freeze_to(-2)
-learn.fit_one_cycle(1, slice(1e-2/(2.6**4),1e-2))
+learn.fit_one_cycle(1, best_lr_2_hp6)
 
 # Freeze all but the last three layers of the classifier and fine-tune it for one epoch
 learn.freeze_to(-3)
-learn.fit_one_cycle(1, slice(5e-3/(2.6**4),5e-3))
+learn.fit_one_cycle(1, best_lr_3_hp7)
 
 # Unfreeze all layers of the classifier and fine-tune it for three epochs
 learn.unfreeze()
-learn.fine_tune(2, 1e-5,1, cbs=[ShowGraphCallback()])
+learn.fine_tune(2, best_lr_4_hp8, cbs=[ShowGraphCallback()])
 
 # ===========================================
 # ||                                       ||
-# ||       Section 3: test the model       ||
+# ||       Section 4: test the model       ||
 # ||                                       ||
 # ===========================================
 
@@ -152,3 +276,11 @@ f1 = f1_score(target_tensor, predicted_classes_tensor)
 # Print the accuracy and f1 score of the model on the test data.
 print(f"Test accuracy: {acc}")
 print(f"Test f1 score: {f1}")
+
+# ===========================================
+# ||                                       ||
+# ||       Section 5: Save the model       ||
+# ||                                       ||
+# ===========================================
+
+learn.export("ULMFiT.pkl")
