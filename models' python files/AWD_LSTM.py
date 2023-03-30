@@ -1,3 +1,5 @@
+!pip install optuna
+
 # ===========================================
 # ||                                       ||
 # ||       Section 1: Importing modules    ||
@@ -8,28 +10,29 @@ from fastai.text.all import *
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score
+import optuna
 
 # ===========================================
 # ||                                       ||
-# ||       Section 2: getting dataframes   ||
+# ||       Section 2: Getting dataframes   ||
 # ||                    and dataloader     ||
 # ||                                       ||
 # ===========================================
 
-#TODO use clean dataset
 # Read in a CSV files
 
-train_df = pd.read_csv("/content/drive/MyDrive/ML_proj/zaazazza/train_df.csv")
-test_df = pd.read_csv("/content/drive/MyDrive/ML_proj/zaazazza/test_df.csv")
-validation_df =  pd.read_csv("/content/drive/MyDrive/ML_proj/zaazazza/validation_df.csv")
+train_df = pd.read_csv("/content/drive/MyDrive/ML_proj/zaazazza/augmented_cleaned_train_df.csv")
+test_df = pd.read_csv("/content/drive/MyDrive/ML_proj/zaazazza/clean_test_data.csv")
+validation_df =  pd.read_csv("/content/drive/MyDrive/ML_proj/zaazazza/clean_validation_data.csv")
 
 # Drop not needed columns
 
-train_df = test_df.drop(train_df.columns[0:4], axis=1)
-validation_df = validation_df.drop(validation_df.columns[0:4], axis=1)
-test_df = test_df.drop(test_df.columns[0:4], axis=1)
+train_df = train_df.drop(train_df.columns[0:5], axis=1)
+validation_df = validation_df.drop(validation_df.columns[0:5], axis=1)
+test_df = test_df.drop(test_df.columns[0:5], axis=1)
 
 # Create a data loader for text data using the "TextDataLoaders" class from the fastai library.
+
 dls = TextDataLoaders.from_df(train_df, valid_df=validation_df, path='.', valid_pct=0.2, seed=None,
                               text_col=0, label_col=1, label_delim=None,
                               y_block=None, text_vocab=None, is_lm=False,
@@ -38,24 +41,73 @@ dls = TextDataLoaders.from_df(train_df, valid_df=validation_df, path='.', valid_
 
 # ===========================================
 # ||                                       ||
-# ||       Section 3: train the model      ||
+# ||       Section 3: Hyperparameter       ||
+# ||                             tuning    ||
 # ||                                       ||
 # ===========================================
 
-# Picking hyperparameters
-dropout_hp1 = 0.7
-epoch_hp2 = 4
-lr_hp3 = 1e-2
+# Define a function that trains the model on specific hyperparams and returns the f1 score
+
+def objective(trial):
+    # Define the search space for hyperparameters
+    dropout = trial.suggest_uniform('dropout', 0.2, 0.8)
+    n_epochs = trial.suggest_int('n_epochs', 2, 10)
+    learning_rate = trial.suggest_loguniform('learning_rate', 1e-5, 1e-1)
+
+    # Create a text classification learner with the suggested hyperparameters
+    learn = text_classifier_learner(dls, AWD_LSTM, drop_mult=dropout, metrics=accuracy)
+
+    # Fine-tune the neural network for the suggested number of epochs using stochastic gradient descent
+    learn.fine_tune(n_epochs, learning_rate, cbs=[ShowGraphCallback()])
+
+    # Get the predicted probabilities for the validation data using the trained model.
+    val_dl = dls.test_dl(validation_df['text'])
+    val_preds, _ = learn.get_preds(dl=val_dl)
+
+    # Get the predicted labels for the validation data.
+    val_predicted_labels = val_preds.argmax(dim=1)
+
+    # Compute the f1 score of the model on the validation data using the `f1_score` function.
+    val_f1 = f1_score(validation_df["target"].values, val_predicted_labels)
+
+    # Return the f1 score as the value to optimize
+    return val_f1
+
+# Create an optuna study and optimize the objective function 
+#(we are maximizing the f1 socore)
+study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler())
+study.optimize(objective, n_trials=30)
+
+# Print the best set of hyperparameters found by optuna and the corresponding f1 score on the validation data.
+print('Best trial:')
+best_trial = study.best_trial
+print(f'  Value: {best_trial.value:.5f}')
+print('  Params: ')
+for key, value in best_trial.params.items():
+    print(f'    {key}: {value}')
+
+# Train the model with the best hyperparameters found by optuna and evaluate it on the test data.
+best_dropout = best_trial.params['dropout']
+best_n_epochs = best_trial.params['n_epochs']
+best_learning_rate = best_trial.params['learning_rate']
+
+# ===========================================
+# ||                                       ||
+# ||       Section 4: Train the model      ||
+# ||                                       ||
+# ===========================================
 
 # Create a text classification learner using the fastai library.
-learn = text_classifier_learner(dls, AWD_LSTM, drop_mult=dropout_hp1, metrics=accuracy)
+
+learn = text_classifier_learner(dls, AWD_LSTM, drop_mult=best_dropout, metrics=accuracy)
 
 # Fine-tune the neural network for four epochs using stochastic gradient descent
-learn.fine_tune(epoch_hp2, lr_hp3, cbs=[ShowGraphCallback()])
+
+learn.fine_tune(best_n_epochs, best_learning_rate, cbs=[ShowGraphCallback()])
 
 # ===========================================
 # ||                                       ||
-# ||       Section 4: testing the model    ||
+# ||       Section 5: Testing the model    ||
 # ||                                       ||
 # ===========================================
 
@@ -87,3 +139,11 @@ f1 = f1_score(target_tensor, predicted_classes_tensor)
 # Print the accuracy and f1 score of the model on the test data.
 print(f"Test accuracy: {acc}")
 print(f"Test f1 score: {f1}")
+
+# ===========================================
+# ||                                       ||
+# ||       Section 6: Export the model     ||
+# ||                                       ||
+# ===========================================
+
+learn.export("AWD_LSTM_aug.pkl")
