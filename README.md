@@ -1,4 +1,4 @@
-# NLP Disaster Tweet Detection
+# Neural Augmentation for Text Classification
 
 Kaggle Competition: https://www.kaggle.com/competitions/nlp-getting-started
 
